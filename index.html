@@ -1,0 +1,599 @@
+<title>BlindSweeper</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=JetBrains+Mono:wght@400;700&display=swap">
+<style>
+  :root{
+    --ground:#0f120f; --panel:#171c17; --raised:#242b24; --raised-hi:#2f382f; --flat:#111511; --edge:#2c342c;
+    --ink:#e6e1cf; --dim:#8a917f; --fuse:#f08a24; --safe:#7cc47c; --mine:#d9443b; --coin:#e6c35c; --sonar:#5ad0c8;
+    --n1:#6fa8ff; --n2:#7cc47c; --n3:#f07a5a; --n4:#c89bff; --n5:#e6c35c; --n6:#5ad0c8; --n7:#e6e1cf; --n8:#ff6b6b;
+    --cell:36px;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;font-size:14px;user-select:none;-webkit-user-select:none;overflow:hidden}
+  #app{display:grid;grid-template-columns:280px 1fr;height:100vh}
+  aside{background:var(--panel);border-right:1px solid var(--edge);padding:18px 18px 14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+  main{position:relative;display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden}
+  h1{font-family:'Big Shoulders Display',Impact,sans-serif;font-weight:900;font-size:44px;line-height:.9;margin:0;letter-spacing:.01em;text-transform:uppercase}
+  h1 em{font-style:normal;color:var(--fuse)}
+  h2{font-family:'Big Shoulders Display',Impact,sans-serif;font-weight:900;font-size:40px;line-height:.95;margin:0 0 10px;text-transform:uppercase;letter-spacing:.01em}
+  .lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .round{display:flex;justify-content:space-between;align-items:baseline}
+  .round b{font-family:'Big Shoulders Display',Impact,sans-serif;font-size:30px;font-weight:700}
+  .boss{color:var(--mine);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+  .scorebox{background:var(--flat);border:1px solid var(--edge);padding:10px 12px}
+  .scorebox .big{display:flex;justify-content:space-between;align-items:baseline;font-variant-numeric:tabular-nums}
+  .scorebox .big b{font-family:'Big Shoulders Display',Impact,sans-serif;font-size:36px;font-weight:900;line-height:1}
+  .scorebox .big span{color:var(--dim)}
+  .bar{height:8px;background:#0a0d0a;margin-top:8px;border:1px solid var(--edge)}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#b8621a,var(--fuse));transition:width .2s ease-out}
+  .bar.done i{background:var(--safe)}
+  .formula{display:flex;gap:8px;align-items:baseline;margin-top:8px;font-variant-numeric:tabular-nums}
+  .formula b{font-size:18px}
+  .formula .m{color:var(--mine)}
+  .formula .c{color:var(--n1)}
+  .gain{margin-left:auto;color:var(--safe);font-weight:700;opacity:0;transition:opacity .4s}
+  .gain.on{opacity:1;transition:none}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat{background:var(--flat);border:1px solid var(--edge);padding:8px 10px}
+  .stat b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+  .hearts{letter-spacing:2px;color:var(--mine)}
+  .hearts .lost{color:#3a2a2a}
+  .coins{color:var(--coin)}
+  .relics{display:flex;flex-direction:column;gap:6px}
+  .relic{display:grid;grid-template-columns:1fr auto;gap:8px;padding:7px 10px;background:var(--flat);border:1px solid var(--edge);border-left:3px solid var(--fuse)}
+  .relic b{font-size:13px}
+  .relic small{display:block;color:var(--dim);font-size:11px;line-height:1.35;margin-top:2px}
+  .relic .price{color:var(--coin);font-weight:700;white-space:nowrap}
+  .relics .empty{color:var(--dim);font-size:12px;padding:6px 0}
+  .actions{display:flex;flex-wrap:wrap;gap:6px}
+  button{font:inherit;color:var(--ink);background:var(--raised);border:1px solid var(--edge);border-bottom:3px solid #0a0d0a;padding:8px 12px;cursor:pointer;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  button:hover{background:var(--raised-hi)}
+  button:active{border-bottom-width:1px;transform:translateY(2px)}
+  button:disabled{opacity:.4;cursor:default;transform:none}
+  button.on{border-color:var(--fuse);color:var(--fuse)}
+  button.primary{background:var(--fuse);color:#1a1005;border-color:#b8621a;font-weight:700}
+  button.primary:hover{background:#ff9a35}
+  button:focus-visible{outline:2px solid var(--sonar);outline-offset:2px}
+  .hint{color:var(--dim);font-size:11px;line-height:1.5;margin-top:auto}
+  kbd{font:inherit;padding:0 5px;border:1px solid var(--edge);border-bottom-width:2px;background:var(--flat);color:var(--ink)}
+
+  #board{display:grid;gap:2px;padding:6px;background:var(--panel);border:1px solid var(--edge);box-shadow:0 30px 60px rgba(0,0,0,.5)}
+  .cell{width:var(--cell);height:var(--cell);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:calc(var(--cell) * .48);background:var(--raised);border-top:2px solid var(--raised-hi);border-left:2px solid var(--raised-hi);border-right:2px solid #131713;border-bottom:2px solid #131713;box-sizing:border-box;cursor:pointer;position:relative}
+  .cell:hover{background:var(--raised-hi)}
+  .cell.rev{background:var(--flat);border:1px solid #1b211b;cursor:default}
+  .cell.rev.zero{background:#0d100d}
+  .cell.flag::after{content:'';position:absolute;inset:26%;background:var(--fuse);clip-path:polygon(20% 0,20% 100%,32% 100%,32% 55%,85% 30%,32% 5%)}
+  .cell.flag.wrong::after{background:var(--dim)}
+  .cell.hit{background:var(--mine);border-color:#8f2a24;color:#1a0a08}
+  .cell.defused{background:#3b2a12;border-color:var(--fuse);color:var(--fuse)}
+  .cell.mineshow{background:#2a1a1a;border-color:#3a2222;color:var(--mine)}
+  .cell.peek-safe{box-shadow:inset 0 0 0 2px var(--sonar)}
+  .cell.peek-mine{box-shadow:inset 0 0 0 2px var(--mine)}
+  .cell.bonus::before{content:'';position:absolute;right:3px;top:3px;width:5px;height:5px;background:var(--coin);border-radius:50%}
+  .cell.pop{animation:pop .18s ease-out}
+  @keyframes pop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+  .n1{color:var(--n1)}.n2{color:var(--n2)}.n3{color:var(--n3)}.n4{color:var(--n4)}.n5{color:var(--n5)}.n6{color:var(--n6)}.n7{color:var(--n7)}.n8{color:var(--n8)}
+  main.sonar .cell:not(.rev){cursor:crosshair}
+  main.sonar .cell:not(.rev):hover{box-shadow:inset 0 0 0 2px var(--sonar)}
+  main.shake{animation:shake .3s}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translate(-6px,2px)}50%{transform:translate(5px,-3px)}75%{transform:translate(-3px,3px)}}
+  main.cash::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%,rgba(240,138,36,.45),rgba(240,138,36,0) 60%);animation:cash .8s ease-out forwards}
+  @keyframes cash{0%{opacity:1;transform:scale(.6)}100%{opacity:0;transform:scale(1.6)}}
+  @media (prefers-reduced-motion:reduce){.cell.pop,main.shake,main.cash::after{animation:none}}
+
+  #toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:8px 16px;background:var(--panel);border:1px solid var(--edge);border-left:3px solid var(--fuse);font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+  #toast.on{opacity:1}
+
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(6,8,6,.82);backdrop-filter:blur(2px);z-index:10;padding:16px}
+  .panel{width:min(94vw,600px);max-height:92vh;overflow-y:auto;background:var(--panel);border:1px solid var(--edge);padding:26px 28px;box-shadow:0 40px 90px rgba(0,0,0,.7)}
+  .panel p{color:var(--dim);line-height:1.55;margin:0 0 10px;max-width:56ch}
+  .panel p b{color:var(--ink)}
+  .shop{display:grid;gap:8px;margin:14px 0}
+  .shop .relic{cursor:pointer;grid-template-columns:1fr auto}
+  .shop .relic:hover{background:#1c231c;border-color:var(--fuse)}
+  .shop .relic.sold{opacity:.4;cursor:default}
+  .shopbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .earn{display:grid;grid-template-columns:1fr auto;gap:2px 16px;font-variant-numeric:tabular-nums;color:var(--dim);margin:12px 0;font-size:13px}
+  .earn b{color:var(--coin);text-align:right}
+  .earn .tot{color:var(--ink);border-top:1px solid var(--edge);padding-top:4px;margin-top:2px}
+  .result{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+  .result div{background:var(--flat);border:1px solid var(--edge);padding:10px 12px}
+  .result strong{display:block;font-family:'Big Shoulders Display',Impact,sans-serif;font-size:34px;font-weight:900;font-variant-numeric:tabular-nums}
+  .bossnote{border-left:3px solid var(--mine);padding:8px 12px;background:var(--flat);margin:12px 0}
+  .bossnote b{color:var(--mine)}
+
+  @media (max-width:760px){
+    #app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+    aside{border-right:0;border-bottom:1px solid var(--edge);padding:12px 14px;gap:10px;max-height:46vh}
+    h1{font-size:30px}
+    .hint{display:none}
+    main{padding:8px}
+  }
+</style>
+
+<div id="app">
+  <aside>
+    <h1>Blind<em>Sweeper</em></h1>
+    <div>
+      <div class="round"><span><span class="lbl">Round</span> <b id="round">1</b></span><span class="boss" id="bossname"></span></div>
+    </div>
+    <div class="scorebox">
+      <div class="lbl">Score / Target</div>
+      <div class="big"><b id="score">0</b><span id="target">0</span></div>
+      <div class="bar" id="bar"><i></i></div>
+      <div class="formula"><span class="lbl">Mult</span><b class="m" id="mult">×1</b><span class="lbl">Chips / cell</span><b class="c">1 + n</b><span class="gain" id="gain"></span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="lbl">Hearts</span><b class="hearts" id="hearts"></b></div>
+      <div class="stat"><span class="lbl">Coins</span><b class="coins" id="coins">0</b></div>
+      <div class="stat"><span class="lbl">Safe left</span><b id="safeleft">0</b></div>
+      <div class="stat"><span class="lbl">Mines</span><b id="minecount">0</b></div>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:6px">Relics</div>
+      <div class="relics" id="relics"></div>
+    </div>
+    <div class="actions" id="actions">
+      <button id="flagmode" title="Toggle flag mode">Flag mode</button>
+      <button id="sonarbtn" hidden>Sonar</button>
+      <button id="shovelbtn" hidden>Shovel</button>
+      <button id="sfxbtn" class="on" title="Toggle sound effects">SFX</button>
+      <button id="musicbtn" title="Toggle music">Music</button>
+    </div>
+    <div class="hint">Click to dig. Right-click or long-press to flag. Reach the target before you run out of hearts or safe cells. Round ends the moment you hit the target.</div>
+  </aside>
+  <main id="main">
+    <div id="board"></div>
+    <div id="toast"></div>
+  </main>
+</div>
+
+<div id="title" class="overlay">
+  <div class="panel">
+    <h2>Blind<em style="font-style:normal;color:var(--fuse)">Sweeper</em></h2>
+    <p>Minesweeper as a run. Every safe cell you dig scores <b>chips × mult</b>. Each round has a target. Hit it and you cash out to a shop where relics bend the rules in your favour.</p>
+    <p>You have <b>three hearts</b> for the whole run. A mine costs one. Every third round is a <b>boss</b> with a twist. Targets outgrow honest play around round seven, so build something.</p>
+    <p>Dig: click or tap. Flag: right-click, long-press, or toggle flag mode. First dig is always safe.</p>
+    <button class="primary" id="startbtn">Start the run</button>
+  </div>
+</div>
+
+<div id="shop" class="overlay" hidden>
+  <div class="panel">
+    <h2>Round <span id="shop-round"></span> cleared</h2>
+    <div class="earn" id="earn"></div>
+    <div class="shopbar"><span class="lbl">Shop · <span class="coins" id="shop-coins">0</span> coins</span><button id="reroll">Reroll · 2</button></div>
+    <div class="shop" id="shopitems"></div>
+    <div class="bossnote" id="nextboss" hidden></div>
+    <div class="shopbar"><span class="lbl" id="shop-msg"></span><button class="primary" id="nextbtn">Next round</button></div>
+  </div>
+</div>
+
+<div id="over" class="overlay" hidden>
+  <div class="panel">
+    <h2 id="over-title">Run over</h2>
+    <p id="over-text"></p>
+    <div class="result">
+      <div><span class="lbl">Round</span><strong id="o-round">1</strong></div>
+      <div><span class="lbl">Cells dug</span><strong id="o-cells">0</strong></div>
+      <div><span class="lbl">Best round</span><strong id="o-best">1</strong></div>
+    </div>
+    <button class="primary" id="againbtn">New run</button>
+  </div>
+</div>
+
+<script>
+// ---------- audio (all synthesized with Web Audio, no files) ----------
+const AU = { ctx: null, master: null, musicGain: null, sfx: true, music: false, seq: null, step: 0 };
+try { AU.sfx = localStorage.getItem('bs-sfx') !== '0'; AU.music = localStorage.getItem('bs-music') === '1'; } catch (e) {}
+function audioInit(){
+  if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
+  const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+  AU.ctx = new C();
+  AU.master = AU.ctx.createGain(); AU.master.gain.value = 0.6; AU.master.connect(AU.ctx.destination);
+  AU.musicGain = AU.ctx.createGain(); AU.musicGain.gain.value = AU.music ? 1 : 0; AU.musicGain.connect(AU.master);
+  musicStart();
+}
+// one enveloped oscillator note
+function tone({ f = 440, type = 'square', dur = 0.08, vol = 0.2, slide = 0, delay = 0, dest = null }){
+  if (!AU.ctx) return;
+  const t = AU.ctx.currentTime + delay, o = AU.ctx.createOscillator(), g = AU.ctx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, f + slide), t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(dest || AU.master); o.start(t); o.stop(t + dur + 0.05);
+}
+// filtered white-noise burst (explosions, hits)
+function noise({ dur = 0.4, vol = 0.5, cutoff = 800, delay = 0 }){
+  if (!AU.ctx) return;
+  const t = AU.ctx.currentTime + delay, len = Math.floor(AU.ctx.sampleRate * dur), buf = AU.ctx.createBuffer(1, len, AU.ctx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const s = AU.ctx.createBufferSource(), f = AU.ctx.createBiquadFilter(), g = AU.ctx.createGain();
+  s.buffer = buf; f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff * 3, t); f.frequency.exponentialRampToValueAtTime(cutoff / 4, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(AU.master); s.start(t);
+}
+const SFX = {
+  dig(chips, i){ if (AU.sfx) tone({ f: 260 + Math.min(chips, 12) * 35 + i * 12, type: 'square', dur: 0.06, vol: 0.09, delay: i * 0.022 }); },
+  flag(on){ if (AU.sfx) tone({ f: on ? 880 : 620, type: 'triangle', dur: 0.06, vol: 0.14 }); },
+  boom(){ if (!AU.sfx) return; noise({ dur: 0.6, vol: 0.7, cutoff: 600 }); tone({ f: 90, type: 'sine', dur: 0.55, vol: 0.6, slide: -60 }); },
+  defuse(){ if (!AU.sfx) return; noise({ dur: 0.2, vol: 0.25, cutoff: 2000 }); tone({ f: 500, type: 'triangle', dur: 0.25, vol: 0.2, slide: 300 }); },
+  cash(){ if (AU.sfx) [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ f, type: 'triangle', dur: 0.22, vol: 0.18, delay: i * 0.085 })); },
+  buy(){ if (!AU.sfx) return; tone({ f: 660, type: 'triangle', dur: 0.09, vol: 0.16 }); tone({ f: 990, type: 'triangle', dur: 0.14, vol: 0.16, delay: 0.08 }); },
+  nope(){ if (AU.sfx) tone({ f: 180, type: 'sawtooth', dur: 0.16, vol: 0.12, slide: -70 }); },
+  sonar(mine){ if (!AU.sfx) return; tone({ f: 1400, type: 'sine', dur: 0.5, vol: 0.14, slide: -900 }); if (mine) tone({ f: 220, type: 'square', dur: 0.2, vol: 0.12, delay: 0.3 }); },
+  momentum(){ if (!AU.sfx) return; tone({ f: 440, type: 'square', dur: 0.08, vol: 0.14 }); tone({ f: 880, type: 'square', dur: 0.14, vol: 0.14, delay: 0.07 }); },
+  over(){ if (!AU.sfx) return; [330, 294, 262, 220].forEach((f, i) => tone({ f, type: 'sawtooth', dur: 0.35, vol: 0.12, delay: i * 0.22 })); },
+};
+// ambient music: a slow arpeggio in D minor over a detuned drone, scheduled on a timer
+const SCALE = [146.83, 174.61, 220.00, 261.63, 293.66, 349.23, 440.00]; // D3 F3 A3 C4 D4 F4 A4
+const PATTERN = [0, 2, 4, 2, 1, 3, 5, 3, 0, 2, 6, 4, 1, 3, 5, 2];
+function musicStart(){
+  if (!AU.ctx || AU.seq) return;
+  for (const det of [-6, 6]) {
+    const o = AU.ctx.createOscillator(), g = AU.ctx.createGain(), f = AU.ctx.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.value = 73.42; o.detune.value = det;
+    f.type = 'lowpass'; f.frequency.value = 220; g.gain.value = 0.05;
+    o.connect(f).connect(g).connect(AU.musicGain); o.start();
+  }
+  AU.seq = setInterval(() => {
+    if (!AU.music || document.hidden) return;
+    const s = AU.step++;
+    tone({ f: SCALE[PATTERN[s % PATTERN.length]] * 2, type: 'triangle', dur: 0.45, vol: 0.045, dest: AU.musicGain });
+    if (s % 8 === 0) tone({ f: SCALE[s % 16 === 0 ? 0 : 2] / 2, type: 'sine', dur: 1.6, vol: 0.12, dest: AU.musicGain });
+  }, 340);
+}
+function setMusic(on){
+  AU.music = on;
+  if (AU.musicGain) AU.musicGain.gain.setTargetAtTime(on ? 1 : 0, AU.ctx.currentTime, 0.3);
+  try { localStorage.setItem('bs-music', on ? '1' : '0'); } catch (e) {}
+}
+function setSfx(on){ AU.sfx = on; try { localStorage.setItem('bs-sfx', on ? '1' : '0'); } catch (e) {} }
+
+// ---------- content ----------
+const RELICS = [
+  { id: 'sonar',     name: 'Sonar',        price: 6, desc: 'Once per round, tap a hidden cell to learn whether it is a mine.' },
+  { id: 'kevlar',    name: 'Kevlar Vest',  price: 6, desc: 'The first mine you hit each round costs no heart.' },
+  { id: 'carto',     name: 'Cartographer', price: 5, desc: 'Start each round with four safe cells already dug.' },
+  { id: 'pockets',   name: 'Deep Pockets', price: 4, desc: '+2 coins at the end of every round.' },
+  { id: 'numer',     name: 'Numerologist', price: 7, desc: 'Cells showing 3 or more score double chips.' },
+  { id: 'momentum',  name: 'Momentum',     price: 7, desc: 'Every 12 cells dug in a round add +1 mult. Resets each round.' },
+  { id: 'flagpole',  name: 'Flagpole',     price: 4, desc: 'Each correctly flagged mine pays 1 coin when the round clears.' },
+  { id: 'zero',      name: 'Zero Hour',    price: 5, desc: 'Empty cells score 3 chips instead of 1.' },
+  { id: 'edge',      name: 'Edge Lord',    price: 5, desc: 'Cells on the border score double chips.' },
+  { id: 'shovel',    name: 'Lucky Shovel', price: 5, desc: 'Once per round, dig up a random safe cell.' },
+  { id: 'insurance', name: 'Insurance',    price: 4, desc: 'Hitting a mine pays 3 coins.' },
+  { id: 'warm',      name: 'Warm Start',   price: 8, desc: 'Mult starts at 2 instead of 1.' },
+  { id: 'heart',     name: 'Heartstone',   price: 7, desc: '+1 max heart, and heal one now.' },
+  { id: 'corner',    name: 'Four Corners', price: 5, desc: 'Corner cells score ×4 chips.' },
+];
+const MEDKIT = { id: 'medkit', name: 'Medkit', price: 4, desc: 'Heal one heart. Consumed on purchase.', consumable: true };
+const BOSSES = [
+  { id: 'nocascade', name: 'Dead Air',       desc: 'Empty cells no longer dig up their neighbours.' },
+  { id: 'double',    name: 'Heavy Ordnance', desc: 'Every mine costs two hearts.' },
+  { id: 'tax',       name: 'Quota',          desc: 'The target is 40% higher.' },
+  { id: 'fog',       name: 'Fog',            desc: 'Numbers above 3 only show as 3+.' },
+];
+const MAX_RELICS = 6;
+
+// ---------- state ----------
+const $ = id => document.getElementById(id);
+const rnd = n => Math.floor(Math.random() * n);
+let run, R, best = 0;
+try { best = +localStorage.getItem('bs-best') || 0; } catch (e) {}
+
+function has(id){ return run.relics.includes(id); }
+
+function newRun(){
+  run = { round: 1, hearts: 3, maxHearts: 3, coins: 4, relics: [], cellsDug: 0, shopItems: [], nextBoss: null };
+  startRound();
+}
+function makeBoss(round){ return round % 3 === 0 ? BOSSES[rnd(BOSSES.length)] : null; }
+function startRound(){
+  const r = run.round;
+  const cols = Math.min(16, 8 + r), rows = Math.min(12, 7 + Math.floor(r / 2));
+  const density = Math.min(0.22, 0.12 + 0.012 * r);
+  const mines = Math.round(rows * cols * density);
+  const boss = run.nextBoss || makeBoss(r);
+  run.nextBoss = null;
+  const safe = rows * cols - mines;
+  const target = Math.round(safe * (1 + 8 * density) * (0.5 + 0.06 * r) * (boss && boss.id === 'tax' ? 1.4 : 1));
+  R = { rows, cols, mines, boss, target, score: 0, mult: has('warm') ? 2 : 1, reveals: 0, safeLeft: safe,
+        first: true, kevlarUsed: false, sonarUsed: false, shovelUsed: false, mode: 'dig', over: false,
+        grid: Array.from({ length: rows }, () => Array.from({ length: cols }, () => ({ mine: false, n: 0, rev: false, flag: false, peek: null, state: '' }))) };
+  buildBoard();
+  renderAll();
+  if (boss) toast(`Boss: ${boss.name}. ${boss.desc}`, 3200);
+  else if (r === 1) toast('Dig anywhere. The first cell is always safe.', 2600);
+}
+
+// ---------- board ----------
+const boardEl = $('board'), mainEl = $('main');
+function neighbours(r, c){
+  const out = [];
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < R.rows && cc >= 0 && cc < R.cols) out.push([rr, cc]);
+  }
+  return out;
+}
+function placeMines(sr, sc){
+  const safeZone = new Set([`${sr},${sc}`, ...neighbours(sr, sc).map(([a, b]) => `${a},${b}`)]);
+  const spots = [];
+  for (let r = 0; r < R.rows; r++) for (let c = 0; c < R.cols; c++) if (!safeZone.has(`${r},${c}`)) spots.push([r, c]);
+  for (let i = spots.length - 1; i > 0; i--) { const j = rnd(i + 1); [spots[i], spots[j]] = [spots[j], spots[i]]; }
+  R.mines = Math.min(R.mines, spots.length);
+  for (let i = 0; i < R.mines; i++) R.grid[spots[i][0]][spots[i][1]].mine = true;
+  for (let r = 0; r < R.rows; r++) for (let c = 0; c < R.cols; c++) R.grid[r][c].n = neighbours(r, c).filter(([a, b]) => R.grid[a][b].mine).length;
+  R.safeLeft = R.rows * R.cols - R.mines;
+}
+function isBorder(r, c){ return r === 0 || c === 0 || r === R.rows - 1 || c === R.cols - 1; }
+function isCorner(r, c){ return (r === 0 || r === R.rows - 1) && (c === 0 || c === R.cols - 1); }
+function cellChips(r, c){
+  const cell = R.grid[r][c];
+  let chips = cell.n === 0 ? (has('zero') ? 3 : 1) : 1 + cell.n;
+  if (has('numer') && cell.n >= 3) chips *= 2;
+  if (has('corner') && isCorner(r, c)) chips *= 4;
+  else if (has('edge') && isBorder(r, c)) chips *= 2;
+  return chips;
+}
+function hasBonus(r, c){
+  const cell = R.grid[r][c];
+  return (has('numer') && cell.n >= 3) || (has('corner') && isCorner(r, c)) || (has('edge') && isBorder(r, c)) || (has('zero') && cell.n === 0);
+}
+
+function buildBoard(){
+  boardEl.innerHTML = '';
+  boardEl.style.gridTemplateColumns = `repeat(${R.cols}, var(--cell))`;
+  for (let r = 0; r < R.rows; r++) for (let c = 0; c < R.cols; c++) {
+    const d = document.createElement('div');
+    d.className = 'cell'; d.dataset.r = r; d.dataset.c = c;
+    boardEl.appendChild(d);
+  }
+  fitBoard();
+}
+function fitBoard(){
+  if (!R) return;
+  const w = mainEl.clientWidth - 40, h = mainEl.clientHeight - 40;
+  const size = Math.max(20, Math.min(44, Math.floor(w / R.cols) - 2, Math.floor(h / R.rows) - 2));
+  document.documentElement.style.setProperty('--cell', size + 'px');
+}
+addEventListener('resize', fitBoard);
+
+// ---------- actions ----------
+function dig(r, c, opts = {}){
+  if (R.over) return;
+  const cell = R.grid[r][c];
+  if (cell.rev || cell.flag) return;
+  if (R.first) {
+    R.first = false;
+    placeMines(r, c);
+    if (has('carto')) {
+      const pool = [];
+      for (let a = 0; a < R.rows; a++) for (let b = 0; b < R.cols; b++) if (!R.grid[a][b].mine && (a !== r || b !== c)) pool.push([a, b]);
+      for (let i = 0; i < 4 && pool.length; i++) { const [a, b] = pool.splice(rnd(pool.length), 1)[0]; reveal(a, b, true); }
+    }
+  }
+  if (cell.mine) {
+    cell.rev = true;
+    if (has('kevlar') && !R.kevlarUsed) { R.kevlarUsed = true; cell.state = 'defused'; toast('Kevlar took the blast.'); SFX.defuse(); }
+    else {
+      const cost = R.boss && R.boss.id === 'double' ? 2 : 1;
+      run.hearts -= cost; cell.state = 'hit'; SFX.boom();
+      mainEl.classList.remove('shake'); void mainEl.offsetWidth; mainEl.classList.add('shake');
+      if (has('insurance')) { run.coins += 3; toast(`Boom. −${cost} heart, +3 coins from Insurance.`); }
+      else toast(`Boom. −${cost} heart${cost > 1 ? 's' : ''}.`);
+      if (run.hearts <= 0) { run.hearts = 0; renderAll(); return endRun(false, 'The last heart went with the last mine.'); }
+    }
+    renderAll();
+    return;
+  }
+  const gained = reveal(r, c, false);
+  showGain(gained);
+  renderAll();
+  if (R.score >= R.target) return roundClear();
+  if (R.safeLeft <= 0) return endRun(false, 'The board is clean and the target is still out of reach.');
+}
+// reveals safe cell (with cascade), returns score gained
+function reveal(r, c, silent){
+  const stack = [[r, c]];
+  let gained = 0, k = 0;
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    const cell = R.grid[a][b];
+    if (cell.rev || cell.mine) continue;
+    if (cell.flag) cell.flag = false;
+    cell.rev = true; cell.state = 'pop'; cell.k = k;
+    R.reveals++; R.safeLeft--; run.cellsDug++;
+    if (has('momentum') && R.reveals % 12 === 0) { R.mult++; if (!silent) { toast(`Momentum. Mult is now ×${R.mult}.`); SFX.momentum(); } }
+    const chips = cellChips(a, b);
+    if (!silent && k < 14) SFX.dig(chips, k);
+    k++;
+    gained += chips * R.mult;
+    if (cell.n === 0 && !(R.boss && R.boss.id === 'nocascade')) for (const nb of neighbours(a, b)) stack.push(nb);
+  }
+  R.score += gained;
+  return gained;
+}
+function toggleFlag(r, c){
+  if (R.over) return;
+  const cell = R.grid[r][c];
+  if (cell.rev) return;
+  cell.flag = !cell.flag;
+  SFX.flag(cell.flag);
+  renderCell(r, c);
+}
+function sonar(r, c){
+  const cell = R.grid[r][c];
+  if (cell.rev || R.first) { toast(R.first ? 'Dig one cell first.' : 'Already dug.'); return; }
+  cell.peek = cell.mine ? 'mine' : 'safe';
+  R.sonarUsed = true; R.mode = 'dig';
+  SFX.sonar(cell.mine);
+  toast(cell.mine ? 'Sonar: that one is a mine.' : 'Sonar: that one is safe.');
+  renderAll();
+}
+function shovel(){
+  if (R.first) { toast('Dig one cell first.'); return; }
+  const pool = [];
+  for (let a = 0; a < R.rows; a++) for (let b = 0; b < R.cols; b++) { const x = R.grid[a][b]; if (!x.rev && !x.mine) pool.push([a, b]); }
+  if (!pool.length) return;
+  R.shovelUsed = true;
+  const [a, b] = pool[rnd(pool.length)];
+  dig(a, b);
+}
+
+// ---------- round flow ----------
+function roundClear(){
+  R.over = true;
+  const lines = [];
+  let earn = 4; lines.push(['Round cleared', 4]);
+  lines.push(['Hearts remaining', run.hearts]); earn += run.hearts;
+  const interest = Math.min(5, Math.floor(run.coins / 5)); if (interest) { lines.push(['Interest (1 per 5 held, max 5)', interest]); earn += interest; }
+  if (has('pockets')) { lines.push(['Deep Pockets', 2]); earn += 2; }
+  if (has('flagpole')) { let f = 0; for (const row of R.grid) for (const x of row) if (x.flag && x.mine) f++; if (f) { lines.push([`Flagpole (${f} correct flags)`, f]); earn += f; } }
+  run.coins += earn;
+  if (run.round > best) { best = run.round; try { localStorage.setItem('bs-best', best); } catch (e) {} }
+  // reveal remaining mines for the player's satisfaction
+  for (const row of R.grid) for (const x of row) if (x.mine && !x.rev) x.state = 'mineshow';
+  SFX.cash();
+  mainEl.classList.remove('cash'); void mainEl.offsetWidth; mainEl.classList.add('cash');
+  renderAll();
+  setTimeout(() => openShop(lines, earn), 900);
+}
+function openShop(lines, earn){
+  $('shop-round').textContent = run.round;
+  $('earn').innerHTML = lines.map(([k, v]) => `<span>${k}</span><b>+${v}</b>`).join('') + `<span class="tot">Total</span><b class="tot">+${earn}</b>`;
+  run.shopItems = rollShop();
+  run.nextBoss = makeBoss(run.round + 1);
+  const nb = $('nextboss');
+  nb.hidden = !run.nextBoss;
+  if (run.nextBoss) nb.innerHTML = `Next round is a boss: <b>${run.nextBoss.name}</b>. ${run.nextBoss.desc}`;
+  renderShop();
+  $('shop').hidden = false;
+  if (run.round === 8) toast('Round 8 cleared. The city is defused. Everything past here is endless.', 4000);
+}
+function rollShop(){
+  const pool = RELICS.filter(x => !has(x.id));
+  for (let i = pool.length - 1; i > 0; i--) { const j = rnd(i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const items = pool.slice(0, 3).map(x => ({ ...x, sold: false }));
+  items.push({ ...MEDKIT, sold: false });
+  return items;
+}
+function renderShop(){
+  $('shop-coins').textContent = run.coins;
+  $('shopitems').innerHTML = run.shopItems.map((x, i) => `<div class="relic ${x.sold ? 'sold' : ''}" data-i="${i}"><span><b>${x.name}</b><small>${x.desc}</small></span><span class="price">${x.sold ? 'Sold' : x.price + ' c'}</span></div>`).join('');
+  $('reroll').disabled = run.coins < 2;
+  $('shop-msg').textContent = run.relics.length >= MAX_RELICS ? `Relic slots full (${MAX_RELICS}).` : `${run.relics.length}/${MAX_RELICS} relic slots used.`;
+}
+$('shopitems').addEventListener('click', e => {
+  const el = e.target.closest('.relic'); if (!el) return;
+  const item = run.shopItems[+el.dataset.i];
+  if (item.sold) return;
+  if (run.coins < item.price) { toast('Not enough coins.'); SFX.nope(); return; }
+  if (!item.consumable && run.relics.length >= MAX_RELICS) { toast('Relic slots are full.'); SFX.nope(); return; }
+  run.coins -= item.price; item.sold = true; SFX.buy();
+  if (item.id === 'medkit') { run.hearts = Math.min(run.maxHearts, run.hearts + 1); toast('Healed one heart.'); }
+  else { run.relics.push(item.id); if (item.id === 'heart') { run.maxHearts++; run.hearts = Math.min(run.maxHearts, run.hearts + 1); } toast(`Bought ${item.name}.`); }
+  renderShop(); renderAll();
+});
+$('reroll').addEventListener('click', () => { if (run.coins < 2) return; run.coins -= 2; run.shopItems = rollShop(); SFX.buy(); renderShop(); });
+$('nextbtn').addEventListener('click', () => { $('shop').hidden = true; run.round++; startRound(); });
+
+function endRun(won, text){
+  R.over = true;
+  SFX.over();
+  for (const row of R.grid) for (const x of row) if (x.mine && !x.rev) x.state = 'mineshow';
+  renderAll();
+  $('over-title').textContent = won ? 'Run complete' : 'Run over';
+  $('over-text').textContent = text;
+  $('o-round').textContent = run.round; $('o-cells').textContent = run.cellsDug; $('o-best').textContent = best;
+  setTimeout(() => { $('over').hidden = false; }, 700);
+}
+
+// ---------- rendering ----------
+function renderCell(r, c){
+  const cell = R.grid[r][c], el = boardEl.children[r * R.cols + c];
+  let cls = 'cell', txt = '';
+  if (cell.rev) {
+    cls += ' rev';
+    if (cell.mine) { cls += ' ' + cell.state; txt = cell.state === 'defused' ? '◌' : '✸'; }
+    else if (cell.n === 0) cls += ' zero';
+    else { const fog = R.boss && R.boss.id === 'fog' && cell.n > 3; cls += ' n' + cell.n; txt = fog ? '3+' : cell.n; }
+    if (cell.state === 'pop') { cls += ' pop'; el.style.animationDelay = Math.min(cell.k || 0, 40) * 18 + 'ms'; cell.state = ''; }
+    else el.style.animationDelay = '';
+  } else {
+    if (cell.flag) { cls += ' flag'; if (R.over && !cell.mine) cls += ' wrong'; }
+    if (cell.state === 'mineshow') { cls += ' rev mineshow'; txt = '✸'; }
+    if (cell.peek) cls += ' peek-' + cell.peek;
+    if (!R.first && hasBonus(r, c) && !cell.mine && cell.peek === 'safe') cls += ' bonus';
+  }
+  if (cell.rev && !cell.mine && hasBonus(r, c)) cls += ' bonus';
+  el.className = cls; el.textContent = txt;
+}
+function renderAll(){
+  for (let r = 0; r < R.rows; r++) for (let c = 0; c < R.cols; c++) renderCell(r, c);
+  $('round').textContent = run.round;
+  $('bossname').textContent = R.boss ? 'Boss · ' + R.boss.name : '';
+  $('score').textContent = R.score; $('target').textContent = R.target;
+  const bar = $('bar'); bar.firstElementChild.style.width = Math.min(100, R.score / R.target * 100) + '%'; bar.classList.toggle('done', R.score >= R.target);
+  $('mult').textContent = '×' + R.mult;
+  $('hearts').innerHTML = Array.from({ length: run.maxHearts }, (_, i) => `<span class="${i < run.hearts ? '' : 'lost'}">♥</span>`).join('');
+  $('coins').textContent = run.coins;
+  $('safeleft').textContent = R.first ? '—' : R.safeLeft;
+  $('minecount').textContent = R.mines;
+  $('relics').innerHTML = run.relics.length ? run.relics.map(id => { const x = RELICS.find(y => y.id === id); return `<div class="relic"><span><b>${x.name}</b><small>${x.desc}</small></span></div>`; }).join('') : '<div class="empty">None yet. Clear a round to shop.</div>';
+  const sb = $('sonarbtn'), sh = $('shovelbtn');
+  sb.hidden = !has('sonar'); sb.disabled = R.sonarUsed || R.over; sb.classList.toggle('on', R.mode === 'sonar'); sb.textContent = R.sonarUsed ? 'Sonar used' : 'Sonar';
+  sh.hidden = !has('shovel'); sh.disabled = R.shovelUsed || R.over; sh.textContent = R.shovelUsed ? 'Shovel used' : 'Shovel';
+  $('flagmode').classList.toggle('on', R.mode === 'flag');
+  $('sfxbtn').classList.toggle('on', AU.sfx);
+  $('musicbtn').classList.toggle('on', AU.music);
+  mainEl.classList.toggle('sonar', R.mode === 'sonar');
+}
+let gainT;
+function showGain(v){
+  const g = $('gain'); g.textContent = '+' + v; g.classList.add('on');
+  clearTimeout(gainT); gainT = setTimeout(() => g.classList.remove('on'), 900);
+}
+let toastT;
+function toast(msg, ms = 1800){
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), ms);
+}
+
+// ---------- input ----------
+let pressT = null, pressed = null, longFired = false;
+boardEl.addEventListener('contextmenu', e => { e.preventDefault(); const el = e.target.closest('.cell'); if (el) toggleFlag(+el.dataset.r, +el.dataset.c); });
+boardEl.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  const el = e.target.closest('.cell'); if (!el) return;
+  pressed = el; longFired = false;
+  pressT = setTimeout(() => { longFired = true; toggleFlag(+el.dataset.r, +el.dataset.c); }, 380);
+});
+const release = e => {
+  clearTimeout(pressT);
+  const el = e.target.closest && e.target.closest('.cell');
+  if (!longFired && el && el === pressed) {
+    const r = +el.dataset.r, c = +el.dataset.c;
+    if (R.mode === 'sonar') sonar(r, c);
+    else if (R.mode === 'flag') toggleFlag(r, c);
+    else dig(r, c);
+  }
+  pressed = null;
+};
+boardEl.addEventListener('pointerup', release);
+boardEl.addEventListener('pointercancel', () => { clearTimeout(pressT); pressed = null; });
+boardEl.addEventListener('pointerleave', () => { clearTimeout(pressT); pressed = null; });
+$('flagmode').addEventListener('click', () => { R.mode = R.mode === 'flag' ? 'dig' : 'flag'; renderAll(); });
+$('sonarbtn').addEventListener('click', () => { R.mode = R.mode === 'sonar' ? 'dig' : 'sonar'; renderAll(); if (R.mode === 'sonar') toast('Sonar armed. Tap a hidden cell.'); });
+$('shovelbtn').addEventListener('click', shovel);
+addEventListener('keydown', e => { if (e.code === 'KeyF' && R && !R.over) { R.mode = R.mode === 'flag' ? 'dig' : 'flag'; renderAll(); } });
+$('sfxbtn').addEventListener('click', () => { audioInit(); setSfx(!AU.sfx); renderAll(); if (AU.sfx) SFX.buy(); });
+$('musicbtn').addEventListener('click', () => { audioInit(); setMusic(!AU.music); renderAll(); });
+// browsers only allow audio after a user gesture, so the context is created on the first click anywhere
+addEventListener('pointerdown', audioInit, { once: true });
+$('startbtn').addEventListener('click', () => { audioInit(); $('title').hidden = true; newRun(); });
+$('againbtn').addEventListener('click', () => { $('over').hidden = true; newRun(); });
+
+newRun();
+</script>
